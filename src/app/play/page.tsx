@@ -2,6 +2,8 @@
 import React, { useState } from 'react';
 import { newDeck, draw, handValue, dealerPlays, optimalDecision, evaluate } from '@/lib/blackjack';
 
+type Decision = { action: string; optimal: string };
+
 export default function Play() {
   const [deck, setDeck] = useState(() => newDeck(true));
   const [player, setPlayer] = useState(() => draw(deck,2)[1]);
@@ -9,9 +11,17 @@ export default function Play() {
   const [currentDeck, setCurrentDeck] = useState(() => draw(draw(deck,2)[0],2)[0]);
   const [showOptimal, setShowOptimal] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [decisions, setDecisions] = useState<Decision[]>([]);
+
+  function recordDecision(action: string) {
+    const dealerUp = d[0];
+    const optimal = optimalDecision(player, dealerUp);
+    setDecisions(prev => [...prev, { action, optimal }]);
+  }
 
   function hit() {
     if (result) return;
+    recordDecision('hit');
     const drawRes = draw(currentDeck,1);
     setCurrentDeck(drawRes[0]);
     setPlayer(prev => prev.concat(drawRes[1]));
@@ -22,8 +32,26 @@ export default function Play() {
     }
   }
 
+  function doubleDown() {
+    if (result) return;
+    // allow double only on first two cards
+    if (player.length !== 2) return;
+    recordDecision('double');
+    const drawRes = draw(currentDeck,1);
+    setCurrentDeck(drawRes[0]);
+    const newHand = player.concat(drawRes[1]);
+    setPlayer(newHand);
+    // after double, player stands
+    const dp = dealerPlays(currentDeck, d.slice());
+    setD(dp.hand);
+    setCurrentDeck(dp.deck);
+    const res = evaluate(newHand, dp.hand);
+    setResult(res);
+  }
+
   function stand() {
     if (result) return;
+    recordDecision('stand');
     const dp = dealerPlays(currentDeck, d.slice());
     setD(dp.hand);
     setCurrentDeck(dp.deck);
@@ -43,6 +71,7 @@ export default function Play() {
     setCurrentDeck(rest2);
     setShowOptimal(false);
     setResult(null);
+    setDecisions([]);
   }
 
   const dealerUp = d[0];
@@ -53,8 +82,9 @@ export default function Play() {
       <div className="mb-4">Dealer up: {dealerUp.rank}{dealerUp.suit} (val {dealerUp.value})</div>
       <div className="mb-4">Player: {player.map(c=>`${c.rank}${c.suit}`).join(' ') } - {handValue(player)}</div>
       <div className="flex gap-2 mb-4">
-        <button className="btn" onClick={hit}>Hit</button>
-        <button className="btn" onClick={stand}>Stand</button>
+        <button className="btn" onClick={hit} disabled={!!result}>Hit</button>
+        <button className="btn" onClick={stand} disabled={!!result}>Stand</button>
+        <button className="btn" onClick={doubleDown} disabled={!!result || player.length!==2}>Double</button>
         <button className="btn" onClick={reset}>Reset</button>
       </div>
       <div className="mb-4">
@@ -62,7 +92,21 @@ export default function Play() {
         <input type="checkbox" checked={showOptimal} onChange={e=>setShowOptimal(e.target.checked)} />
         {showOptimal && <div className="mt-2">Optimal: {optimalDecision(player,dealerUp)}</div>}
       </div>
+
       {result && <div className="mt-4 font-semibold">Result: {result.toUpperCase()}</div>}
+
+      {result && (
+        <div className="mt-4">
+          <h3 className="font-semibold">Decision grading</h3>
+          <ul className="list-disc pl-6">
+            {decisions.map((d,idx)=>(
+              <li key={idx} className={d.action===d.optimal? 'text-green-600':'text-red-600'}>
+                You chose: {d.action} — Optimal: {d.optimal} {d.action===d.optimal? '(correct)':'(wrong)'}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
