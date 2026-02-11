@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { newDeck, draw, handValue, dealerPlays, optimalDecision, evaluate } from '@/lib/blackjack';
 
 type Decision = { action: string; optimal: string };
@@ -14,6 +14,7 @@ export default function Play() {
   const [showOptimal, setShowOptimal] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [decisions, setDecisions] = useState<Decision[]>([]);
+  const decisionsRef = useRef<Decision[]>([]);
 
   // session stats
   const [totalDecisions, setTotalDecisions] = useState(0);
@@ -45,7 +46,9 @@ export default function Play() {
   function recordDecision(action: string) {
     const dealerUp = d[0];
     const optimal = optimalDecision(player, dealerUp);
-    setDecisions(prev => [...prev, { action, optimal }]);
+    // update a ref synchronously so finalizeHand can read the latest decisions immediately
+    decisionsRef.current.push({ action, optimal });
+    setDecisions([...decisionsRef.current]);
     // update session counters
     const isCorrect = action === optimal;
     setTotalDecisions(t => t + 1);
@@ -97,14 +100,16 @@ export default function Play() {
 
   function finalizeHand() {
     // compute per-hand accuracy and add to history
-    if (decisions.length === 0) return;
-    const correctThisHand = decisions.filter(x => x.action === x.optimal).length;
-    const percent = Math.round((correctThisHand / decisions.length) * 100);
+    const currentDecisions = decisionsRef.current;
+    if (!currentDecisions || currentDecisions.length === 0) return;
+    const correctThisHand = currentDecisions.filter(x => x.action === x.optimal).length;
+    const percent = Math.round((correctThisHand / currentDecisions.length) * 100);
     setHandHistory(h => {
       const next = [percent, ...h].slice(0,50); // keep last 50
       return next;
     });
     // clear decisions for next hand (but keep session counters)
+    decisionsRef.current = [];
     setDecisions([]);
   }
 
@@ -120,6 +125,7 @@ export default function Play() {
     setCurrentDeck(rest2);
     setShowOptimal(false);
     setResult(null);
+    decisionsRef.current = [];
     setDecisions([]);
   }
 
