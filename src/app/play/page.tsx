@@ -13,35 +13,48 @@ export default function Play() {
   const [currentDeck, setCurrentDeck] = useState(() => draw(draw(deck,2)[0],2)[0]);
   const [showOptimal, setShowOptimal] = useState(false);
   const [result, setResult] = useState<string | null>(null);
-  const [decisions, setDecisions] = useState<Decision[]>([]);
+  // keep state var name unused to satisfy linter — we use a ref for the source of truth
+  const [_decisions, setDecisions] = useState<Decision[]>([]);
   const decisionsRef = useRef<Decision[]>([]);
   const [lastHandDecisions, setLastHandDecisions] = useState<Decision[]>([]);
 
-  // session stats
-  const [totalDecisions, setTotalDecisions] = useState(0);
-  const [correctDecisions, setCorrectDecisions] = useState(0);
-  const [handHistory, setHandHistory] = useState<number[]>([]); // per-hand accuracy percentages
-
-  useEffect(() => {
-    // load session from localStorage (ephemeral session storage)
+  // session stats (read from localStorage during initialization to avoid setState-in-effect)
+  const [totalDecisions, setTotalDecisions] = useState<number>(() => {
     try {
       const raw = localStorage.getItem(SESSION_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed.totalDecisions) setTotalDecisions(parsed.totalDecisions);
-        if (parsed.correctDecisions) setCorrectDecisions(parsed.correctDecisions);
-        if (Array.isArray(parsed.handHistory)) setHandHistory(parsed.handHistory);
+        if (parsed && parsed.totalDecisions) return parsed.totalDecisions;
       }
-    } catch (e) {
-      // ignore
-    }
-  }, []);
+    } catch (_e) {}
+    return 0;
+  });
+  const [correctDecisions, setCorrectDecisions] = useState<number>(() => {
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.correctDecisions) return parsed.correctDecisions;
+      }
+    } catch (_e) {}
+    return 0;
+  });
+  const [handHistory, setHandHistory] = useState<number[]>(() => {
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.handHistory)) return parsed.handHistory;
+      }
+    } catch (_e) {}
+    return [];
+  }); // per-hand accuracy percentages
 
   useEffect(() => {
     // persist session stats
     try {
       localStorage.setItem(SESSION_KEY, JSON.stringify({ totalDecisions, correctDecisions, handHistory }));
-    } catch (e) {}
+    } catch (_e) {}
   }, [totalDecisions, correctDecisions, handHistory]);
 
   function recordDecision(action: string) {
