@@ -15,6 +15,7 @@ export default function Play() {
   const [result, setResult] = useState<string | null>(null);
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const decisionsRef = useRef<Decision[]>([]);
+  const [lastHandDecisions, setLastHandDecisions] = useState<Decision[]>([]);
 
   // session stats
   const [totalDecisions, setTotalDecisions] = useState(0);
@@ -108,7 +109,8 @@ export default function Play() {
       const next = [percent, ...h].slice(0,50); // keep last 50
       return next;
     });
-    // clear decisions for next hand (but keep session counters)
+    // store last hand decisions for grading UI, then clear
+    setLastHandDecisions(decisionsRef.current);
     decisionsRef.current = [];
     setDecisions([]);
   }
@@ -164,11 +166,11 @@ export default function Play() {
         {result && <div className="mt-2 mb-4 font-semibold">Result: {result.toUpperCase()}</div>}
 
         {result && (
-          <div className="mt-4 mb-4">
+          <div className="mt-4 mb-4 bg-white/5 p-3 rounded">
             <h3 className="font-semibold">Decision grading</h3>
             <ul className="list-disc pl-6">
-              {decisions.map((d,idx)=>(
-                <li key={idx} className={d.action===d.optimal? 'text-green-300':'text-red-300'}>
+              {lastHandDecisions.map((d,idx)=>(
+                <li key={idx} className={d.action===d.optimal? 'text-green-200':'text-red-200'}>
                   You chose: {d.action} — Optimal: {d.optimal} {d.action===d.optimal? '(correct)':'(wrong)'}
                 </li>
               ))}
